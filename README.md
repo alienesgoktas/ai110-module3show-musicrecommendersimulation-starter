@@ -88,7 +88,39 @@ Deliberately excluded: `tempo_bpm` and `danceability` (redundant with energy).
 | `likes_acoustic` | bool | Whether acoustic production is a plus or a minus |
 | `target_valence` | float 0–1 | How positive/upbeat the user wants the music. Added to the starter profile; defaults to 0.5 so existing code keeps working |
 
-### Scoring Rule (one song)
+### Example User Profile
+
+```python
+user_prefs = {
+    "favorite_genre": "lofi",     # categorical
+    "favorite_mood":  "chill",    # categorical
+    "target_energy":  0.35,       # 0-1, a target to sit near, not a minimum
+    "target_valence": 0.55,       # 0-1, how upbeat the user wants it
+    "likes_acoustic": True,       # bool, flips how acousticness is read
+}
+```
+
+### Data Flow
+
+```mermaid
+flowchart TD
+    A[data/songs.csv<br/>20 songs] --> B[load_songs<br/>parse rows, cast numbers]
+    C[UserProfile<br/>genre, mood, energy,<br/>valence, likes_acoustic] --> D
+
+    B --> D{for each song<br/>in the catalog}
+    D --> E[SCORING RULE<br/>genre + mood + energy<br/>+ valence + acoustic]
+    E --> F[score + reasons]
+    F --> D
+
+    D -->|all songs scored| G[RANKING RULE<br/>sort by score desc,<br/>tie-break by id]
+    G --> H[take top k]
+    H --> I[Top K recommendations<br/>each with an explanation]
+```
+
+In one line: **Input** (user prefs) → **Process** (loop scoring every song
+independently) → **Output** (sort, cut to k, explain).
+
+### Algorithm Recipe — Scoring Rule (one song)
 
 Each song accumulates points from independent terms:
 
@@ -99,6 +131,19 @@ score = genre_points          # 2.0 exact match, 1.0 partial match, else 0
       + 0.5 * (1 - |song.valence - user.target_valence|)
       + acoustic_points       # 1.0 * acousticness, or 1.0 * (1 - acousticness)
 ```
+
+| Term | Weight | Contributes |
+|---|---|---|
+| Exact genre match | +2.0 | 0 or 2.0 |
+| Partial genre match (`indie pop` for `pop`) | +1.0 | 0 or 1.0 |
+| Mood match | +1.5 | 0 or 1.5 |
+| Energy closeness | ×1.5 | 0.0 – 1.5 |
+| Valence closeness | ×0.5 | 0.0 – 0.5 |
+| Acoustic preference | ×1.0 | 0.0 – 1.0 |
+| **Maximum possible** | | **6.5** |
+
+Categorical terms max out at 3.5 and numeric terms at 3.0, so neither kind of
+signal can completely overpower the other.
 
 The energy term is the important one. Using the *difference* rather than the raw
 value means the score peaks when the song matches the user's target and falls off
@@ -129,6 +174,43 @@ tie, and whether the same artist should be allowed to fill the whole list. Those
 are all list-level concerns. Real recommenders make the same split: scoring is
 their ranking model, and this step is their re-ranking stage, where diversity and
 freshness rules are applied.
+
+### Biases I Expect Before Writing the Code
+
+Recording these in advance so I can check afterwards whether they actually
+appeared, rather than rationalizing whatever the system produces.
+
+**1. Genre over-prioritization.** At +2.0, genre is the single largest term. A
+song that nails the user's mood and energy but sits in the wrong genre can lose
+to a same-genre song that matches nothing else. The system will likely bury good
+cross-genre matches. *Check:* find a case where a mood-and-energy match loses to
+a genre-only match, and see whether I agree with the ranking.
+
+**2. A cliff after the first result in sparse genres.** 13 of my 16 genres have
+only one song. Testing a folk/melancholy profile gave 6.41 for the one folk
+track, then 2.71 for the next — everything past #1 is chosen almost entirely by
+energy, so the tail of the list is close to "any quiet song." The system will
+look confident while returning near-arbitrary results.
+
+**3. Mood may be decorative.** Testing mood weights of 1.0 vs 1.5 produced
+*identical* rankings; only at 2.0 did anything move. Mood may be acting as a
+tie-breaker rather than a real signal, which would mean one of my two headline
+features is barely doing work.
+
+**4. Middle-of-the-road songs get a floor.** Because energy and valence use
+`1 − |difference|`, a song always earns *some* points, and songs near 0.5 on
+every axis are never far from anyone. Bland songs may quietly out-rank
+distinctive ones that miss slightly.
+
+**5. Popularity bias is absent — and that is itself notable.** With no play
+counts, this system cannot favor popular songs, which real recommenders
+notoriously do. That's a genuine advantage of the content-based approach here,
+not something I designed around.
+
+**6. My weights encode one theory of taste, applied to everyone.** Deciding
+genre matters more than mood is a claim about how *all* listeners work. Someone
+who picks music purely by mood gets a system tuned against them, and nothing in
+the profile lets them say so.
 
 ---
 
