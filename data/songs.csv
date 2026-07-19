@@ -9,3 +9,13 @@ id,title,artist,genre,mood,energy,tempo_bpm,valence,danceability,acousticness
 8,Night Drive Loop,Neon Echo,synthwave,moody,0.75,110,0.49,0.73,0.22
 9,Focus Flow,LoRoom,lofi,focused,0.40,80,0.59,0.60,0.78
 10,Rooftop Lights,Indigo Parade,indie pop,happy,0.76,124,0.81,0.82,0.35
+11,Concrete Sunrise,Mara Vex,hip hop,confident,0.78,95,0.66,0.86,0.11
+12,Winter Letters,Elin Sorby,folk,melancholy,0.29,84,0.19,0.31,0.93
+13,Ironclad,Hollow Reign,metal,intense,0.97,168,0.21,0.44,0.04
+14,Paper Cranes,Yuki Tanabe,classical,relaxed,0.23,66,0.52,0.17,0.97
+15,Basement Party,Club Havoc,house,euphoric,0.89,128,0.92,0.95,0.06
+16,Mud and Thunder,Redbird Holler,bluegrass,happy,0.87,146,0.81,0.63,0.90
+17,Static Prayer,Null Chapel,ambient,moody,0.32,92,0.17,0.46,0.07
+18,Sunday Curtains,Odalys,r&b,romantic,0.51,102,0.58,0.77,0.29
+19,Ocean Bus Route,Kito Lamar,afrobeats,happy,0.74,112,0.88,0.89,0.24
+20,Long Way Home,Cassie Vaughn,country,nostalgic,0.44,96,0.41,0.48,0.72
