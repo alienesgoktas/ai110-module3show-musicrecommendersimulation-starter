@@ -315,11 +315,66 @@ handed a gym track third.
 
 ## Experiments You Tried
 
-Use this section to document the experiments you ran. For example:
+I tested five profiles — Pop Fan, Lofi Student, Metalhead, Sad Folk and Jazz
+Chill — under three weight configurations, and measured how many of the 15 top-3
+slots (5 profiles × 3 slots) actually changed.
 
-- What happened when you changed the weight on genre from 2.0 to 0.5
-- What happened when you added tempo or valence to the score
-- How did your system behave for different types of users
+### Experiment A — halve genre (2.0 → 1.0), double energy (1.5 → 3.0)
+
+**Result: only 2 of 15 slots changed.** Three of the five profiles were
+completely unaffected.
+
+| Profile | Change |
+|---|---|
+| Pop Fan | `Gym Hero` → `Ocean Bus Route` |
+| Lofi Student | `Focus Flow` → `Spacewalk Thoughts` |
+| Metalhead, Sad Folk, Jazz Chill | no change |
+
+**More accurate, or just different?** Mostly neither — it barely moved. But the
+one meaningful change was an *improvement*: the pop fan's third slot went from
+`Gym Hero` (pop, but intense) to `Ocean Bus Route` (genuinely happy). Someone
+asking for happy pop probably wants the upbeat song over the gym track.
+
+The bigger lesson was that my weights matter far less than I assumed. The #1
+result is always the single song matching both genre and mood, and it wins by
+such a margin that reweighting cannot dislodge it. **The dataset shape dominates
+the scoring rule.**
+
+### Experiment B — remove the mood check entirely (weight 1.5 → 0.0)
+
+**Result: 1 of 15 slots changed.** Deleting one of my two headline categorical
+features was almost undetectable.
+
+The clearest evidence: with mood removed, the pop fan's `Sunrise City` and
+`Gym Hero` tie at *exactly* 4.72, and the order is decided by song ID. Mood's
+real job in this system is breaking ties between songs that already agree on
+genre and energy — not steering results.
+
+This directly contradicts predicted bias #3, which I had listed as a
+possibility rather than an expectation. It is now the strongest finding in the
+model card.
+
+### Score-cliff measurements
+
+| Profile | 1st | 3rd | Drop |
+|---|---|---|---|
+| Pop Fan | 6.22 | 4.72 | 1.50 |
+| Lofi Student | 6.33 | 4.68 | 1.65 |
+| Metalhead | 6.41 | 4.16 | 2.25 |
+| **Sad Folk** | 6.41 | 2.67 | **3.74** |
+| **Jazz Chill** | 6.35 | 2.81 | **3.54** |
+
+Profiles whose genre has neighbours in the catalog (pop/indie pop, lofi×3)
+degrade gently. Profiles in single-song genres fall off a cliff after the one
+exact match, and everything below is chosen almost entirely by energy. This
+confirms predicted bias #2.
+
+### What I did not test
+
+I left `tempo_bpm` and `danceability` out of the scoring rule throughout, on the
+correlation evidence from Phase 2, so I have no experimental data on what adding
+them would do. Given how little the weight changes mattered, I suspect the answer
+is "very little" — but that is a prediction, not a result.
 
 ---
 
