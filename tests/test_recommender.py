@@ -1,4 +1,11 @@
-from src.recommender import Song, UserProfile, Recommender
+from src.recommender import (
+    Song,
+    UserProfile,
+    Recommender,
+    load_songs,
+    score_song,
+    recommend_songs,
+)
 
 def make_small_recommender() -> Recommender:
     songs = [
@@ -59,3 +66,70 @@ def test_explain_recommendation_returns_non_empty_string():
     explanation = rec.explain_recommendation(user, song)
     assert isinstance(explanation, str)
     assert explanation.strip() != ""
+
+
+def test_recommend_respects_k():
+    user = UserProfile("pop", "happy", 0.8, False)
+    assert len(make_small_recommender().recommend(user, k=1)) == 1
+
+
+def test_opposite_profile_flips_the_ranking():
+    """A chill/lofi user should get the lofi track, not the pop one."""
+    user = UserProfile("lofi", "chill", 0.4, True)
+    assert make_small_recommender().recommend(user, k=1)[0].genre == "lofi"
+
+
+def test_energy_is_scored_by_closeness_not_magnitude():
+    """A low-energy user must not be handed the highest-energy song."""
+    calm = {"favorite_genre": "", "favorite_mood": "", "target_energy": 0.3}
+    quiet = {"genre": "x", "mood": "y", "energy": 0.3, "valence": 0.5, "acousticness": 0.5}
+    loud = {"genre": "x", "mood": "y", "energy": 0.9, "valence": 0.5, "acousticness": 0.5}
+    assert score_song(calm, quiet)[0] > score_song(calm, loud)[0]
+
+
+def test_score_song_returns_reasons_with_points():
+    song = {"genre": "pop", "mood": "happy", "energy": 0.8, "valence": 0.7, "acousticness": 0.2}
+    score, reasons = score_song(
+        {"favorite_genre": "pop", "favorite_mood": "happy", "target_energy": 0.8}, song
+    )
+    assert score > 0
+    assert any("genre match" in r and "+2.0" in r for r in reasons)
+    assert any("mood match" in r for r in reasons)
+
+
+def test_exact_genre_beats_partial_beats_none():
+    prefs = {"favorite_genre": "pop", "favorite_mood": "", "target_energy": 0.5}
+    base = {"mood": "y", "energy": 0.5, "valence": 0.5, "acousticness": 0.5}
+    exact = score_song(prefs, {**base, "genre": "pop"})[0]
+    partial = score_song(prefs, {**base, "genre": "indie pop"})[0]
+    none = score_song(prefs, {**base, "genre": "metal"})[0]
+    assert exact > partial > none
+
+
+def test_load_songs_parses_numbers():
+    songs = load_songs("data/songs.csv")
+    assert len(songs) == 20
+    assert isinstance(songs[0]["id"], int)
+    assert isinstance(songs[0]["energy"], float)
+
+
+def test_recommend_songs_sorts_descending_and_explains():
+    songs = load_songs("data/songs.csv")
+    results = recommend_songs(
+        {"favorite_genre": "lofi", "favorite_mood": "chill", "target_energy": 0.4}, songs, k=3
+    )
+
+    assert len(results) == 3
+    scores = [score for _, score, _ in results]
+    assert scores == sorted(scores, reverse=True)
+    assert results[0][0]["genre"] == "lofi"
+    assert results[0][2].strip() != ""
+
+
+def test_recommend_songs_does_not_reorder_the_caller_catalog():
+    """sorted() is used rather than .sort(), so the input list is untouched."""
+    songs = load_songs("data/songs.csv")
+    before = [s["id"] for s in songs]
+    recommend_songs({"favorite_genre": "metal", "favorite_mood": "intense",
+                     "target_energy": 0.9}, songs, k=5)
+    assert [s["id"] for s in songs] == before

@@ -251,16 +251,63 @@ You can add more tests in `tests/test_recommender.py`.
 
 ## Sample Recommendation Output
 
-Paste a sample of your recommender's output here as a text block so a reader can see what it produces:
+Actual terminal output from `python -m src.main` using the default pop/happy
+profile:
 
 ```
-# e.g.:
-# User profile: genre=indie, mood=chill, energy=low
-# Recommendations:
-#   1. ...
-#   2. ...
-#   3. ...
+Loaded songs: 20
+
+====================================================================
+  Profile: pop / happy | energy 0.80 | valence 0.70 | produced
+====================================================================
+
+1. Sunrise City - Neon Echo
+   Score: 6.22   [pop / happy]
+     - genre match: pop (+2.0)
+     - mood match: happy (+1.5)
+     - energy 0.82 vs target 0.80 (+1.47)
+     - valence 0.84 vs target 0.70 (+0.43)
+     - produced sound (+0.82)
+
+2. Rooftop Lights - Indigo Parade
+   Score: 5.04   [indie pop / happy]
+     - partial genre match: indie pop (+1.0)
+     - mood match: happy (+1.5)
+     - energy 0.76 vs target 0.80 (+1.44)
+     - valence 0.81 vs target 0.70 (+0.44)
+     - produced sound (+0.65)
+
+3. Gym Hero - Max Pulse
+   Score: 4.72   [pop / intense]
+     - genre match: pop (+2.0)
+     - energy 0.93 vs target 0.80 (+1.30)
+     - valence 0.77 vs target 0.70 (+0.46)
+     - produced sound (+0.95)
+
+4. Ocean Bus Route - Kito Lamar
+   Score: 4.08   [afrobeats / happy]
+     - mood match: happy (+1.5)
+     - energy 0.74 vs target 0.80 (+1.41)
+     - valence 0.88 vs target 0.70 (+0.41)
+     - produced sound (+0.76)
+
+5. Mud and Thunder - Redbird Holler
+   Score: 3.44   [bluegrass / happy]
+     - mood match: happy (+1.5)
+     - energy 0.87 vs target 0.80 (+1.40)
+     - valence 0.81 vs target 0.70 (+0.44)
+     - produced sound (+0.10)
 ```
+
+**Does this match expectations?** Yes — `Sunrise City` is the only song that is
+both pop *and* happy at roughly the right energy, and it wins by a clear margin.
+`Rooftop Lights` placing second is the partial-genre rule working as designed.
+
+**It also confirms bias #1 straight away.** `Gym Hero` (pop, but *intense*) beats
+`Ocean Bus Route` (happy, but afrobeats) 4.72 to 4.08 — a genre-only match
+outranks a mood-only match, exactly as predicted. Whether that is right depends
+on the listener: someone who searched for "happy" music may be unimpressed to be
+handed a gym track third.
 
 **Screenshot or video** *(optional)*: <!-- Insert a screenshot or demo video link here -->
 
