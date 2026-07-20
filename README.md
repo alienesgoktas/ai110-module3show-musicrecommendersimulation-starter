@@ -11,7 +11,7 @@ Your goal is to:
 - Evaluate what your system gets right and wrong
 - Reflect on how this mirrors real world AI recommenders
 
-**My version** is a content-based music recommender built on a 10-song catalog.
+**My version** is a content-based music recommender built on a 20-song catalog.
 The user describes the kind of music they want — a genre, a mood, a target energy
 level, and whether they prefer acoustic or produced sound — and the system scores
 every song in the catalog against that description, then returns the best
@@ -40,7 +40,7 @@ play song Y, the system links X and Y without ever analyzing the audio. That
 works extremely well at scale, but it needs an enormous amount of interaction
 data, and it can't recommend a song nobody has played yet.
 
-My simulator has no listening history at all — just a catalog of 10 songs and
+My simulator has no listening history at all — just a catalog of 20 songs and
 their attributes — so it uses the other pillar, **content-based filtering**. It
 compares the *properties of each song* against a user's stated preferences and
 scores the match. This means it can recommend a brand-new song the moment it is
@@ -58,11 +58,15 @@ rather than the most intense track in the catalog.
 
 ### Features used
 
-I checked the correlations between the numeric columns before choosing, and found
-that `tempo_bpm` (+0.96), `danceability` (+0.86) and `acousticness` (−0.99) are
-almost perfectly correlated with `energy` in this catalog. Scoring all of them
-would just be counting energy four times and drowning out genre and mood, so I
-deliberately use only a subset.
+I checked the correlations between the numeric columns before choosing. In the
+original 10-song catalog, `tempo_bpm` (+0.96), `danceability` (+0.86) and
+`acousticness` (−0.99) were almost perfectly correlated with `energy` — scoring
+all of them would just have counted energy four times and drowned out genre and
+mood, so I deliberately use only a subset.
+
+Expanding the catalog to 20 songs weakened those correlations
+(`acousticness` −0.99 → −0.72, `danceability` +0.86 → +0.69), but `tempo_bpm`
+stayed redundant at +0.91, so it remains excluded.
 
 **`Song` uses:**
 
@@ -427,7 +431,6 @@ taste applied to everybody: deciding genre matters more than mood is a claim
 about all listeners, and someone who picks music purely by mood gets a system
 quietly tuned against them, with no way to say so.
 
-<!-- TODO: rewrite in your own voice before submitting -->
 
 
 

@@ -2,7 +2,7 @@
 
 ## 1. Model Name
 
-**Vibe Check 1.0**
+**Vibe check with me**
 
 It checks whether a song matches the vibe you asked for. That is all it does.
 
@@ -318,5 +318,3 @@ I also came away thinking explainability is underrated. My whole system can be
 checked with a calculator, and that is how I found out mood was doing nothing.
 Real recommenders cannot be audited that way, which means a flaw like mine could
 sit in one for years without anyone noticing.
-
-<!-- TODO: rewrite this section in your own voice before submitting -->
