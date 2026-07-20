@@ -380,15 +380,21 @@ is "very little" — but that is a prediction, not a result.
 
 ## Limitations and Risks
 
-Summarize some limitations of your recommender.
+- **Tiny catalog.** 20 songs, and 13 of the 16 genres contain only one song.
+- **It fails silently for rare taste.** A folk listener's scores drop 3.74 points
+  from 1st to 3rd; a pop listener's drop 1.50. Both get five confident-looking
+  results, but only one list is meaningful. Measured, not guessed — see
+  Experiments above.
+- **Mood barely does anything.** Removing it changed 1 of 15 top-3 slots.
+- **No way to express dislikes.** Only positive preferences exist, so an unwanted
+  genre keeps reappearing whenever its energy happens to match.
+- **One favorite genre and mood per user.** Real taste is a mix, not a single
+  string.
+- **No understanding of lyrics, language, artist familiarity, or release date.**
+  Two songs with identical numbers are interchangeable to this system.
+- **No diversity control.** Nothing stops one artist or genre filling the list.
 
-Examples:
-
-- It only works on a tiny catalog
-- It does not understand lyrics or language
-- It might over favor one genre or mood
-
-You will go deeper on this in your model card.
+Full detail, including the fairness angle, is in [`model_card.md`](model_card.md).
 
 ---
 
@@ -398,10 +404,30 @@ Read and complete `model_card.md`:
 
 [**Model Card**](model_card.md)
 
-Write 1 to 2 paragraphs here about what you learned:
+**On how recommenders turn data into predictions:** a recommendation is just
+arithmetic over attributes plus a sort. There is no understanding of music
+anywhere in my system — it compares numbers and strings, adds up points, and puts
+the biggest number first. What surprised me is how much of the outcome was
+already decided by the dataset before any of my scoring logic ran. I halved the
+genre weight and doubled the energy weight and only 2 of 15 results moved;
+deleting the mood check moved 1. The weights I agonised over were the least
+important part. The catalog's shape did the real work, because most of my genres
+contain a single song, so the winner was fixed before the weighting mattered.
 
-- about how recommenders turn data into predictions
-- about where bias or unfairness could show up in systems like this
+**On bias and unfairness:** the failure I found is not that the system is wrong —
+it is that it fails *unevenly and invisibly*. It works well for listeners whose
+taste is well represented in the catalog and poorly for everyone else, and it
+presents both cases with identical confidence: same formatting, same five
+results, same explanations. The folk listener has no way to tell that everything
+below their first result is essentially "any quiet song." Scaled up, that is how
+a recommender ends up serving mainstream taste well and niche taste badly while
+appearing to treat everyone the same — and the users being failed are the least
+likely to be able to prove it. I also noticed my weights encode one theory of
+taste applied to everybody: deciding genre matters more than mood is a claim
+about all listeners, and someone who picks music purely by mood gets a system
+quietly tuned against them, with no way to say so.
+
+<!-- TODO: rewrite in your own voice before submitting -->
 
 
 
