@@ -4,15 +4,26 @@ import csv
 from typing import List, Dict, Tuple
 from dataclasses import dataclass
 
-# --- Algorithm Recipe weights (see README.md) ------------------------------
-W_GENRE = 2.0           # exact genre match
-W_GENRE_PARTIAL = 1.0   # shared word, e.g. "indie pop" for a "pop" fan
-W_MOOD = 1.5            # exact mood match
-W_ENERGY = 1.5          # scaled by closeness to the user's target
-W_VALENCE = 0.5         # scaled by closeness to the user's target
-W_ACOUSTIC = 1.0        # scaled by acousticness, or its inverse
-
 NUMERIC_FIELDS = ("energy", "tempo_bpm", "valence", "danceability", "acousticness")
+
+
+@dataclass(frozen=True)
+class ScoringStrategy:
+    """A named set of Algorithm Recipe weights that can be swapped at runtime."""
+    name: str = "balanced"
+    genre: float = 2.0          # exact genre match
+    genre_partial: float = 1.0  # shared word, e.g. "indie pop" for a "pop" fan
+    mood: float = 1.5           # exact mood match
+    energy: float = 1.5         # scaled by closeness to the user's target
+    valence: float = 0.5        # scaled by closeness to the user's target
+    acoustic: float = 1.0       # scaled by acousticness, or its inverse
+
+
+# The recipe documented in README.md, plus the variants used in Phase 4.
+BALANCED = ScoringStrategy()
+ENERGY_FIRST = ScoringStrategy("energy-first", genre=1.0, genre_partial=0.5, energy=3.0)
+MOOD_BLIND = ScoringStrategy("mood-blind", mood=0.0)
+GENRE_PURIST = ScoringStrategy("genre-purist", genre=4.0, genre_partial=2.0)
 
 
 @dataclass
@@ -49,12 +60,13 @@ class Recommender:
     OOP implementation of the recommendation logic.
     Required by tests/test_recommender.py
     """
-    def __init__(self, songs: List[Song]):
+    def __init__(self, songs: List[Song], strategy: ScoringStrategy = BALANCED):
         self.songs = songs
+        self.strategy = strategy
 
     def score(self, user: UserProfile, song: Song) -> Tuple[float, List[str]]:
         """Scores one song for one user, returning (score, reasons)."""
-        return score_song(vars(user), vars(song))
+        return score_song(vars(user), vars(song), self.strategy)
 
     def recommend(self, user: UserProfile, k: int = 5) -> List[Song]:
         """Returns the k best-scoring songs for the user, highest score first."""
@@ -87,7 +99,8 @@ def _closeness(a: float, b: float) -> float:
     return 1.0 - abs(a - b)
 
 
-def score_song(user_prefs: Dict, song: Dict) -> Tuple[float, List[str]]:
+def score_song(user_prefs: Dict, song: Dict,
+               strategy: ScoringStrategy = BALANCED) -> Tuple[float, List[str]]:
     """
     Scores a single song against user preferences.
     Required by recommend_songs() and src/main.py
@@ -99,43 +112,44 @@ def score_song(user_prefs: Dict, song: Dict) -> Tuple[float, List[str]]:
     #    ("indie pop" for someone who asked for "pop").
     want_genre = str(user_prefs.get("favorite_genre", "")).lower()
     song_genre = str(song.get("genre", "")).lower()
-    if want_genre and want_genre == song_genre:
-        score += W_GENRE
-        reasons.append(f"genre match: {song_genre} (+{W_GENRE:.1f})")
-    elif want_genre and set(want_genre.split()) & set(song_genre.split()):
-        score += W_GENRE_PARTIAL
-        reasons.append(f"partial genre match: {song_genre} (+{W_GENRE_PARTIAL:.1f})")
+    if want_genre and want_genre == song_genre and strategy.genre:
+        score += strategy.genre
+        reasons.append(f"genre match: {song_genre} (+{strategy.genre:.1f})")
+    elif (want_genre and strategy.genre_partial
+          and set(want_genre.split()) & set(song_genre.split())):
+        score += strategy.genre_partial
+        reasons.append(f"partial genre match: {song_genre} (+{strategy.genre_partial:.1f})")
 
     # 2. Mood.
     want_mood = str(user_prefs.get("favorite_mood", "")).lower()
-    if want_mood and want_mood == str(song.get("mood", "")).lower():
-        score += W_MOOD
-        reasons.append(f"mood match: {want_mood} (+{W_MOOD:.1f})")
+    if want_mood and strategy.mood and want_mood == str(song.get("mood", "")).lower():
+        score += strategy.mood
+        reasons.append(f"mood match: {want_mood} (+{strategy.mood:.1f})")
 
     # 3. Energy - scored by closeness to the target, not by magnitude, so a
     #    user wanting calm music is not handed the most intense track.
-    if user_prefs.get("target_energy") is not None:
-        points = W_ENERGY * _closeness(song["energy"], float(user_prefs["target_energy"]))
+    if user_prefs.get("target_energy") is not None and strategy.energy:
+        points = strategy.energy * _closeness(song["energy"], float(user_prefs["target_energy"]))
         score += points
         reasons.append(f"energy {song['energy']:.2f} vs target "
                        f"{float(user_prefs['target_energy']):.2f} (+{points:.2f})")
 
     # 4. Valence - same idea, smaller weight. The only numeric not strongly
     #    correlated with energy, so it separates dark from bright.
-    if user_prefs.get("target_valence") is not None:
-        points = W_VALENCE * _closeness(song["valence"], float(user_prefs["target_valence"]))
+    if user_prefs.get("target_valence") is not None and strategy.valence:
+        points = strategy.valence * _closeness(song["valence"], float(user_prefs["target_valence"]))
         score += points
         reasons.append(f"valence {song['valence']:.2f} vs target "
                        f"{float(user_prefs['target_valence']):.2f} (+{points:.2f})")
 
     # 5. Acoustic preference - read the same column in opposite directions.
-    if "likes_acoustic" in user_prefs:
+    if "likes_acoustic" in user_prefs and strategy.acoustic:
         acousticness = float(song["acousticness"])
         if user_prefs["likes_acoustic"]:
-            points = W_ACOUSTIC * acousticness
+            points = strategy.acoustic * acousticness
             label = "acoustic"
         else:
-            points = W_ACOUSTIC * (1.0 - acousticness)
+            points = strategy.acoustic * (1.0 - acousticness)
             label = "produced"
         score += points
         reasons.append(f"{label} sound (+{points:.2f})")
@@ -143,14 +157,15 @@ def score_song(user_prefs: Dict, song: Dict) -> Tuple[float, List[str]]:
     return round(score, 2), reasons
 
 
-def recommend_songs(user_prefs: Dict, songs: List[Dict], k: int = 5) -> List[Tuple[Dict, float, str]]:
+def recommend_songs(user_prefs: Dict, songs: List[Dict], k: int = 5,
+                    strategy: ScoringStrategy = BALANCED) -> List[Tuple[Dict, float, str]]:
     """
     Functional implementation of the recommendation logic.
     Required by src/main.py
     """
     scored = []
     for song in songs:
-        score, reasons = score_song(user_prefs, song)
+        score, reasons = score_song(user_prefs, song, strategy)
         scored.append((song, score, "; ".join(reasons or ["no strong matches"])))
 
     # sorted() returns a new list and leaves `songs` untouched; .sort() would

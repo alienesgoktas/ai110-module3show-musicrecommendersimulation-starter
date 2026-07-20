@@ -5,6 +5,11 @@ from src.recommender import (
     load_songs,
     score_song,
     recommend_songs,
+    ScoringStrategy,
+    BALANCED,
+    ENERGY_FIRST,
+    MOOD_BLIND,
+    GENRE_PURIST,
 )
 
 def make_small_recommender() -> Recommender:
@@ -124,6 +129,72 @@ def test_recommend_songs_sorts_descending_and_explains():
     assert scores == sorted(scores, reverse=True)
     assert results[0][0]["genre"] == "lofi"
     assert results[0][2].strip() != ""
+
+
+def test_default_strategy_is_balanced():
+    """Callers that pass no strategy get the documented Algorithm Recipe."""
+    song = {"genre": "pop", "mood": "happy", "energy": 0.8, "valence": 0.7, "acousticness": 0.2}
+    prefs = {"favorite_genre": "pop", "favorite_mood": "happy", "target_energy": 0.8}
+    assert score_song(prefs, song) == score_song(prefs, song, BALANCED)
+
+
+def test_mood_blind_strategy_drops_the_mood_points():
+    """Swapping the strategy changes the score without touching score_song."""
+    song = {"genre": "pop", "mood": "happy", "energy": 0.8, "valence": 0.7, "acousticness": 0.2}
+    prefs = {"favorite_genre": "pop", "favorite_mood": "happy", "target_energy": 0.8}
+
+    balanced, reasons = score_song(prefs, song, BALANCED)
+    blind, blind_reasons = score_song(prefs, song, MOOD_BLIND)
+
+    assert round(balanced - blind, 2) == BALANCED.mood
+    assert any("mood match" in r for r in reasons)
+    assert not any("mood match" in r for r in blind_reasons)
+
+
+def test_strategies_can_produce_different_rankings():
+    """The Phase 4 experiment, as a test rather than a scratchpad hack."""
+    songs = load_songs("data/songs.csv")
+    prefs = {"favorite_genre": "pop", "favorite_mood": "happy",
+             "target_energy": 0.8, "target_valence": 0.7, "likes_acoustic": False}
+
+    balanced = [s["title"] for s, _, _ in recommend_songs(prefs, songs, 3, BALANCED)]
+    energy_first = [s["title"] for s, _, _ in recommend_songs(prefs, songs, 3, ENERGY_FIRST)]
+
+    assert balanced != energy_first
+    assert "Gym Hero" in balanced          # genre-weighted result
+    assert "Ocean Bus Route" in energy_first  # energy-weighted result
+
+
+def test_genre_purist_strategy_favors_genre_over_mood():
+    songs = load_songs("data/songs.csv")
+    prefs = {"favorite_genre": "pop", "favorite_mood": "happy", "target_energy": 0.8}
+    top2 = [s["genre"] for s, _, _ in recommend_songs(prefs, songs, 2, GENRE_PURIST)]
+    assert top2 == ["pop", "pop"]
+
+
+def test_recommender_accepts_a_strategy():
+    user = UserProfile("pop", "happy", 0.8, False)
+    rec = Recommender(make_small_recommender().songs, strategy=MOOD_BLIND)
+    assert rec.strategy is MOOD_BLIND
+    assert rec.score(user, rec.songs[0])[0] < Recommender(rec.songs).score(user, rec.songs[0])[0]
+
+
+def test_strategy_is_immutable():
+    """Frozen dataclass, so an experiment cannot leak into other callers."""
+    import pytest
+    with pytest.raises(Exception):
+        BALANCED.genre = 99.0
+
+
+def test_custom_strategy_can_be_defined_inline():
+    custom = ScoringStrategy("valence-only", genre=0.0, genre_partial=0.0,
+                             mood=0.0, energy=0.0, acoustic=0.0, valence=1.0)
+    song = {"genre": "pop", "mood": "happy", "energy": 0.9, "valence": 0.5, "acousticness": 0.2}
+    prefs = {"favorite_genre": "pop", "favorite_mood": "happy",
+             "target_energy": 0.1, "target_valence": 0.5}
+    score, reasons = score_song(prefs, song, custom)
+    assert score == 1.0
+    assert len(reasons) == 1
 
 
 def test_recommend_songs_does_not_reorder_the_caller_catalog():
